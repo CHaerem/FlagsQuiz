@@ -211,10 +211,12 @@
                     // Show time added notification
                     timeAddedElement.style.display = 'block';
                     setTimeout(() => timeAddedElement.style.display = 'none', 800);
+                    
+                    // Load next question after delay
+                    setTimeout(loadQuestion, 1000);
+                } else {
+                    loadQuestion();
                 }
-                
-                // Load next question after delay
-                setTimeout(loadQuestion, 1000);
             } else {
                 // Wrong answer
                 this.classList.add('wrong');
