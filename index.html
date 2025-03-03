@@ -191,6 +191,10 @@
             fourCountries.forEach((country, i) => {
                 options[i].textContent = country.name;
             });
+
+            if (chillMode) {
+                setTimeout(loadQuestion, 1000);
+            }
         }
         
         // Check answer
