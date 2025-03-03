@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Flag Quiz</title>
+    <style>
+        * {box-sizing: border-box; margin: 0; padding: 0;}
+        body {font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 20px; background-color: #f8f9fa; color: #333; user-select: none; display: flex; justify-content: center; align-items: center; min-height: 100vh;}
+        #game-container {width: 100%; max-width: 500px; background-color: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); padding: 20px;}
+        #header {display: flex; justify-content: space-between; margin-bottom: 20px;}
+        #score, #timer {font-size: 18px; font-weight: bold; padding: 10px 15px; border-radius: 10px; background-color: #f1f3f5;}
+        #timer {color: #e03131;}
+        #flag-container {width: 100%; padding-bottom: 66.67%; position: relative; margin-bottom: 20px; border: 1px solid #dee2e6; border-radius: 10px; overflow: hidden;}
+        #flag-display {position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center;}
+        #flag-display img {max-width: 100%; max-height: 100%; object-fit: contain;}
+        #loading {position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; background: rgba(255,255,255,0.8); z-index: 10;}
+        .spinner {width: 30px; height: 30px; border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px;}
+        @keyframes spin {0% {transform: rotate(0deg);} 100% {transform: rotate(360deg);}}
+        #options {display: grid; grid-template-columns: 1fr 1fr; gap: 10px;}
+        .option {background-color: #f1f3f5; border: none; border-radius: 10px; padding: 15px; font-size: 16px; font-weight: 500; cursor: pointer; min-height: 50px;}
+        .option:active {background-color: #e9ecef; transform: scale(0.98);}
+        .correct {background-color: #40c057 !important; color: white;}
+        .wrong {background-color: #fa5252 !important; color: white;}
+        #game-over {position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(255, 255, 255, 0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100;}
+        #final-score {font-size: 28px; font-weight: bold; margin-bottom: 30px;}
+        #play-again {background-color: #228be6; color: white; border: none; border-radius: 10px; padding: 15px 30px; font-size: 18px; font-weight: bold; cursor: pointer;}
+        .time-added {position: absolute; top: 15px; right: 15px; background-color: rgba(64, 192, 87, 0.8); color: white; padding: 5px 10px; border-radius: 5px; font-weight: bold; display: none;}
+        #difficulty {display: flex; justify-content: center; margin-top: 15px;}
+        .diff-btn {background-color: #f1f3f5; border: none; border-radius: 5px; padding: 8px 12px; margin: 0 5px; cursor: pointer;}
+        .diff-btn.active {background-color: #228be6; color: white;}
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="header">
+            <div id="score">Score: 0</div>
+            <div id="timer">20s</div>
+        </div>
+        <div id="flag-container">
+            <div id="loading"><div class="spinner"></div><span>Loading...</span></div>
+            <div id="flag-display"></div>
+        </div>
+        <div id="options">
+            <button class="option"></button>
+            <button class="option"></button>
+            <button class="option"></button>
+            <button class="option"></button>
+        </div>
+        <div class="time-added">+2s</div>
+        <div id="difficulty">
+            <button class="diff-btn active" data-level="easy">Easy</button>
+            <button class="diff-btn" data-level="medium">Medium</button>
+            <button class="diff-btn" data-level="hard">Hard</button>
+        </div>
+    </div>
+    
+    <div id="game-over">
+        <div id="final-score">Final Score: 0</div>
+        <button id="play-again">Play Again</button>
+    </div>
+    
+    <script>
+        // Game variables
+        let score = 0, timeLeft = 20, correctAnswer = '';
+        let timerInterval, allCountries = [], gameStarted = false;
+        let currentDifficulty = 'easy';
+        
+        // DOM elements
+        const scoreDisplay = document.getElementById('score');
+        const timerDisplay = document.getElementById('timer');
+        const flagDisplay = document.getElementById('flag-display');
+        const options = document.querySelectorAll('.option');
+        const gameOverScreen = document.getElementById('game-over');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const playAgainButton = document.getElementById('play-again');
+        const timeAddedElement = document.querySelector('.time-added');
+        const loadingElement = document.getElementById('loading');
+        const diffButtons = document.querySelectorAll('.diff-btn');
+        
+        // Fallback countries in case API fails
+        const fallbackCountries = [
+            {name: 'Germany', flag: 'https://flagcdn.com/de.svg', region: 'Europe', population: 83000000},
+            {name: 'France', flag: 'https://flagcdn.com/fr.svg', region: 'Europe', population: 67000000},
+            {name: 'Italy', flag: 'https://flagcdn.com/it.svg', region: 'Europe', population: 60000000},
+            {name: 'Spain', flag: 'https://flagcdn.com/es.svg', region: 'Europe', population: 47000000},
+            {name: 'United Kingdom', flag: 'https://flagcdn.com/gb.svg', region: 'Europe', population: 67000000},
+            {name: 'United States', flag: 'https://flagcdn.com/us.svg', region: 'Americas', population: 331000000},
+            {name: 'Canada', flag: 'https://flagcdn.com/ca.svg', region: 'Americas', population: 38000000},
+            {name: 'Brazil', flag: 'https://flagcdn.com/br.svg', region: 'Americas', population: 212000000},
+            {name: 'Japan', flag: 'https://flagcdn.com/jp.svg', region: 'Asia', population: 126000000},
+            {name: 'China', flag: 'https://flagcdn.com/cn.svg', region: 'Asia', population: 1402000000},
+            {name: 'India', flag: 'https://flagcdn.com/in.svg', region: 'Asia', population: 1380000000},
+            {name: 'Australia', flag: 'https://flagcdn.com/au.svg', region: 'Oceania', population: 25000000},
+            {name: 'Nigeria', flag: 'https://flagcdn.com/ng.svg', region: 'Africa', population: 206000000},
+            {name: 'Egypt', flag: 'https://flagcdn.com/eg.svg', region: 'Africa', population: 100000000},
+            {name: 'South Africa', flag: 'https://flagcdn.com/za.svg', region: 'Africa', population: 59000000},
+            {name: 'Mexico', flag: 'https://flagcdn.com/mx.svg', region: 'Americas', population: 128000000}
+        ];
+        
+        // Difficulty settings
+        const diffSettings = {
+            easy: {regions: ['Europe', 'Americas'], minPop: 1000000},
+            medium: {regions: ['Europe', 'Americas', 'Asia', 'Oceania'], minPop: 500000},
+            hard: {regions: ['Europe', 'Americas', 'Asia', 'Oceania', 'Africa'], minPop: 0}
+        };
+        
+        // Fetch countries from API or use fallback
+        async function fetchCountries() {
+            try {
+                loadingElement.style.display = 'flex';
+                const response = await fetch('https://restcountries.com/v3.1/all?fields=name,flags,region,population');
+                if (!response.ok) throw new Error('API request failed');
+                
+                const data = await response.json();
+                allCountries = data.map(c => ({
+                    name: c.name.common,
+                    flag: c.flags.svg || c.flags.png,
+                    region: c.region,
+                    population: c.population
+                }));
+            } catch (err) {
+                console.error('Error fetching countries:', err);
+                allCountries = fallbackCountries;
+            } finally {
+                loadingElement.style.display = 'none';
+                if (!gameStarted) initGame();
+            }
+        }
+        
+        // Initialize game
+        function initGame() {
+            score = 0;
+            timeLeft = 20;
+            gameStarted = true;
+            scoreDisplay.textContent = 'Score: 0';
+            timerDisplay.textContent = '20s';
+            gameOverScreen.style.display = 'none';
+            
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                timerDisplay.textContent = timeLeft + 's';
+                if (timeLeft <= 0) endGame();
+            }, 1000);
+            
+            loadQuestion();
+        }
+        
+        // Load a new question
+        function loadQuestion() {
+            options.forEach(opt => opt.className = 'option');
+            
+            // Filter countries by difficulty
+            const settings = diffSettings[currentDifficulty];
+            const filtered = allCountries.filter(c => 
+                settings.regions.includes(c.region) && c.population >= settings.minPop
+            );
+            
+            // Get 4 random countries
+            const shuffled = [...filtered].sort(() => 0.5 - Math.random());
+            const fourCountries = shuffled.slice(0, 4);
+            
+            // Set correct answer
+            const correctIndex = Math.floor(Math.random() * 4);
+            correctAnswer = fourCountries[correctIndex].name;
+            
+            // Display flag and options
+            flagDisplay.innerHTML = `<img src="${fourCountries[correctIndex].flag}" alt="Flag">`;
+            fourCountries.forEach((country, i) => {
+                options[i].textContent = country.name;
+            });
+        }
+        
+        // Check answer
+        function checkAnswer() {
+            const selectedAnswer = this.textContent;
+            
+            if (selectedAnswer === correctAnswer) {
+                // Correct answer
+                this.classList.add('correct');
+                score++;
+                scoreDisplay.textContent = 'Score: ' + score;
+                
+                // Add time
+                timeLeft += 2;
+                timerDisplay.textContent = timeLeft + 's';
+                
+                // Show time added notification
+                timeAddedElement.style.display = 'block';
+                setTimeout(() => timeAddedElement.style.display = 'none', 800);
+                
+                // Load next question after delay
+                setTimeout(loadQuestion, 1000);
+            } else {
+                // Wrong answer
+                this.classList.add('wrong');
+                
+                // Highlight correct answer
+                options.forEach(opt => {
+                    if (opt.textContent === correctAnswer) opt.classList.add('correct');
+                });
+                
+                endGame();
+            }
+        }
+        
+        // End game
+        function endGame() {
+            clearInterval(timerInterval);
+            finalScoreDisplay.textContent = 'Final Score: ' + score;
+            setTimeout(() => gameOverScreen.style.display = 'flex', 1000);
+        }
+        
+        // Event listeners
+        options.forEach(opt => opt.addEventListener('click', checkAnswer));
+        playAgainButton.addEventListener('click', initGame);
+        
+        diffButtons.forEach(btn => {
+            btn.addEventListener('click', function() {
+                diffButtons.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                currentDifficulty = this.dataset.level;
+                
+                if (gameStarted) {
+                    clearInterval(timerInterval);
+                    initGame();
+                }
+            });
+        });
+        
+        // Start the game
+        fetchCountries();
+    </script>
+</body>
+</html>
