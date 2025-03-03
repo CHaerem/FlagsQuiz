@@ -191,10 +191,31 @@
             fourCountries.forEach((country, i) => {
                 options[i].textContent = country.name;
             });
-
-            if (chillMode) {
-                setTimeout(loadQuestion, 1000);
-            }
+        }
+        
+        // Load the next question in chill mode
+        function loadNextQuestion() {
+            options.forEach(opt => opt.className = 'option');
+            
+            // Filter countries by difficulty
+            const settings = diffSettings[currentDifficulty];
+            const filtered = allCountries.filter(c => 
+                settings.regions.includes(c.region) && c.population >= settings.minPop
+            );
+            
+            // Get 4 random countries
+            const shuffled = [...filtered].sort(() => 0.5 - Math.random());
+            const fourCountries = shuffled.slice(0, 4);
+            
+            // Set correct answer
+            const correctIndex = Math.floor(Math.random() * 4);
+            correctAnswer = fourCountries[correctIndex].name;
+            
+            // Display flag and options
+            flagDisplay.innerHTML = `<img src="${fourCountries[correctIndex].flag}" alt="Flag">`;
+            fourCountries.forEach((country, i) => {
+                options[i].textContent = country.name;
+            });
         }
         
         // Check answer
@@ -219,7 +240,7 @@
                     // Load next question after delay
                     setTimeout(loadQuestion, 1000);
                 } else {
-                    loadQuestion();
+                    loadNextQuestion();
                 }
             } else {
                 // Wrong answer
