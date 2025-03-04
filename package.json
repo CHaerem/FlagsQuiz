@@ -1,0 +1,16 @@
+{
+  "name": "flagsquiz",
+  "version": "1.0.0",
+  "description": "A quiz game to identify flags of different countries",
+  "main": "index.html",
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "jest": "^27.0.6",
+    "puppeteer": "^10.4.0"
+  },
+  "author": "CHaerem",
+  "license": "ISC"
+}
